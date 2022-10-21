@@ -1,0 +1,145 @@
+#%RAML 1.0
+types:
+  TicketCharacterData:
+    description: Response contains Movie Ticket details for a linked via BID.
+    type: object
+    example:
+      strict: false
+      value:
+        ticket:
+          booking_id: BID7890
+          film_name: Avengers - Infinity War
+          cinema_name: Acme IMAX
+          screen_name: Audi 7
+          seats: RR - H4
+          imdb_rating: 8.9
+          language: English
+          date_time: Tue, 08 Feb, 2022 | 04:26 PM
+        character:
+          id: MARVEL0002
+          name: Thanos
+          birthplace: Titan
+          publisher: Marvel Comics
+          movies:
+            -
+              name: Avengers Endgame,
+              year: 2019
+            -
+              name: Guardians of the Galaxy
+              year: 2014
+    additionalProperties: true
+    properties:
+      date_time?:
+        description: Movie date and time in IST timezone
+        type: string
+annotationTypes:
+  amf-serverDescription:
+    type: any
+  amf-exclusiveMinimum:
+    type: any
+  amf-binding:
+    type: any
+  amf-pattern:
+    type: any
+  amf-payloads:
+    type: any
+  amf-exclusiveMaximum:
+    type: any
+  amf-consumes:
+    type: any
+  amf-additionalProperties:
+    type: any
+  amf-or:
+    type: any
+  amf-url:
+    type: any
+  amf-externalDocs:
+    type: any
+  amf-flow:
+    type: any
+  amf-oasDeprecated:
+    type: any
+  amf-contact:
+    type: any
+  amf-multipleOf:
+    type: any
+  amf-xor:
+    type: any
+  amf-not:
+    type: any
+  amf-callbacks:
+    type: any
+  amf-produces:
+    type: any
+  amf-format:
+    type: any
+  amf-license:
+    type: any
+  amf-summary:
+    type: any
+  amf-responses:
+    type: any
+  amf-maximum:
+    type: any
+  amf-tags:
+    type: any
+  amf-dependencies:
+    type: any
+  amf-readOnly:
+    type: any
+  amf-tuple:
+    type: any
+  amf-examples:
+    type: any
+  amf-collectionFormat:
+    type: any
+  amf-termsOfService:
+    type: any
+  amf-servers:
+    type: any
+  amf-xone:
+    type: any
+  amf-defaultResponse:
+    type: any
+  amf-baseUriParameters:
+    type: any
+  amf-parameters:
+    type: any
+  amf-minimum:
+    type: any
+  amf-recursive:
+    type: any
+  amf-and:
+    type: any
+title: Super Ticket PAPI
+baseUri: dev-super-ticket-papi-pallavi.us-e2.cloudhub.io/api/v1
+description: Super Ticket PAPI allows you to check the movie ticket details and additional it also gives the details of the main character.
+version: v1
+protocols:
+  - HTTPS
+/tickets/{BID}:
+  description: Checks the passenger in with given number of bags
+  get:
+    queryParameters:
+      CID:
+        description: Unique Character ID
+        required: false
+        type: string
+    responses:
+      "200":
+        description: If the BID is correct, returns ticket booking details and based on CID a mashed response from the Super Bio SAPI, Super Movies SAPI for the character data will be returned.
+        body:
+          application/json: TicketCharacterData
+      "400":
+        description: ---
+        body:
+          application/json:
+            example:
+              strict: false
+              value:
+                message: Invalid Booking ID.
+            type: any
+  uriParameters:
+    BID:
+      description: Unique Booking ID
+      type: string

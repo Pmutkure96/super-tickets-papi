@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:validation="http://www.mulesoft.org/schema/mule/validation" xmlns:vm="http://www.mulesoft.org/schema/mule/vm" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:api-gateway="http://www.mulesoft.org/schema/mule/api-gateway" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd 
+http://www.mulesoft.org/schema/mule/api-gateway http://www.mulesoft.org/schema/mule/api-gateway/current/mule-api-gateway.xsd
+http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/current/mule-vm.xsd
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd">
+    <http:listener-config name="api-httpListenerConfig">
+        <http:listener-connection host="0.0.0.0" port="8081" />
+    </http:listener-config>
+    <apikit:config name="api-config" api="api.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+	<vm:config name="VM_ConfigShowCancellation" doc:name="VM Config" doc:id="da67e01b-c352-4af1-aa6a-a809d3d4d6a8" >
+		<vm:queues >
+			<vm:queue queueName="cancel-show-notification-queue" queueType="PERSISTENT" maxOutstandingMessages="50" />
+			<vm:queue queueName="cancel-show-notifications-dlq" queueType="PERSISTENT" maxOutstandingMessages="50" />
+		</vm:queues>
+	</vm:config>
+	<api-gateway:autodiscovery apiId="18243623" ignoreBasePath="true" doc:name="API Autodiscovery" doc:id="f5599a5e-77f8-4bef-bb6b-ee94a8e662a3" flowRef="api-main" />
+	<flow name="api-main">
+        <http:listener config-ref="api-httpListenerConfig" path="/api/v1/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body><![CDATA[#[payload]]]></http:body>
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:router config-ref="api-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:BAD_REQUEST">
+                <ee:transform>
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Bad request"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">400</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform>
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:METHOD_NOT_ALLOWED">
+                <ee:transform>
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Method not allowed"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">405</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_ACCEPTABLE">
+                <ee:transform>
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not acceptable"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">406</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:UNSUPPORTED_MEDIA_TYPE">
+                <ee:transform>
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Unsupported media type"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">415</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_IMPLEMENTED">
+                <ee:transform>
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not Implemented"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">501</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="api-console">
+        <http:listener config-ref="api-httpListenerConfig" path="/console/v1/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body><![CDATA[#[payload]]]></http:body>
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:console config-ref="api-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform>
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="get:\tickets\(BID):api-config">
+        <ee:transform>
+            <ee:variables>
+                <ee:set-variable variableName="BID">attributes.uriParams.'BID'</ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <ee:transform>
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  ticket: {
+    booking_id: "BID7890",
+    film_name: "Avengers - Infinity War",
+    cinema_name: "Acme IMAX",
+    screen_name: "Audi 7",
+    seats: "RR - H4",
+    imdb_rating: 8.9,
+    language: "English",
+    date_time: "Tue, 08 Feb, 2022 | 04:26 PM"
+  },
+  character: {
+    id: "MARVEL0002",
+    name: "Thanos",
+    birthplace: "Titan",
+    publisher: "Marvel Comics",
+    movies: [
+      {
+        name: "Avengers Endgame,",
+        year: 2019
+      }, 
+      {
+        name: "Guardians of the Galaxy",
+        year: 2014
+      }
+    ]
+  }
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+	<flow name="cancel-show-notifications" doc:id="e983f889-829a-493f-b05e-45a616ee5939" >
+		<http:listener doc:name="Listener" doc:id="665a958f-e476-4a71-9d45-7a0b79bb118b" config-ref="api-httpListenerConfig" path="/api/cancelShow" allowedMethods="POST">
+			<http:response statusCode="202" >
+				<http:body ><![CDATA[OK]]></http:body>
+			</http:response>
+			<http:error-response statusCode="#[vars.httpStatusCode]" >
+				<http:body ><![CDATA[#[payload]]]></http:body>
+			</http:error-response>
+		</http:listener>
+		<validation:all doc:name="All" doc:id="d03e8336-fb57-4a97-9a06-cc0572901de0" >
+			<validation:is-not-null doc:name="Payload is not null" doc:id="786efa31-05d2-4fb2-b746-fb6461e4865d" value="#[payload]" message="Input Payload is Null"/>
+			<validation:is-not-blank-string doc:name="Content-type Is not blank string" doc:id="fcd0b0f2-4e02-406c-b31b-69d573c4dad4" value="#[attributes.headers.'content-type']" message="Content-type is blank"/>
+			<validation:is-true doc:name="Content-type should be Json" doc:id="b6c5b1a0-fd73-458f-aaac-2f26365d2f2c" expression="#[attributes.headers.'content-type'=='application/json']" message="Content-type is not Json"/>
+		</validation:all>
+		<json:validate-schema doc:name="Validate schema" doc:id="c765f43b-a937-4c21-953b-23d446a900ab" schema="Schema/CancelShowSchema.json"/>
+		<vm:publish doc:name="cancel-show-vm" doc:id="b52c5c8f-361d-4bcb-932a-26201bbf939e" config-ref="VM_ConfigShowCancellation" sendCorrelationId="ALWAYS" queueName="cancel-show-notification-queue"/>
+		<logger level="INFO" doc:name="Logger" doc:id="3f5828a5-23be-409d-87ec-ff84ce9b2260" message="Show Cancel Notification"/>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="47b986a5-88ed-4b9d-97fd-7c37c70aaa3a" type="JSON:SCHEMA_NOT_HONOURED, VALIDATION:MULTIPLE">
+				<set-variable value="400" doc:name="Set Variable" doc:id="f913ac1e-03f2-42f0-8c19-506aadee480e" variableName="httpStatusCode"/>
+				<ee:transform doc:name="Transform Message" doc:id="eb231e7a-d3ff-441e-b331-259aeeb4738e" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"msg": "Invalid Content",
+	"error": error.description
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="process-cancel-show-notifications" doc:id="47c35e87-cb88-4efe-8c55-a8a40cadb64d" >
+	<vm:listener queueName="cancel-show-notification-queue" doc:name="Listener" doc:id="23fcf825-bcad-4040-9141-e19742beffe0" config-ref="VM_ConfigShowCancellation" transactionalAction="ALWAYS_BEGIN">
+			<redelivery-policy maxRedeliveryCount="2" idExpression="#[correlationId]" useSecureHash="false" />
+		</vm:listener> 
+		<ee:transform doc:name="Transform Message" doc:id="d6b6eda4-dde0-43e5-9dbe-25c2de9c135f" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"bid": payload.cancelShowNotification.booking_id,
+	"mobile": payload.cancelShowNotification.user_mobile,
+	"proccessedAt": now()>> "IST"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="9fd72421-745c-4475-83ee-738c1e28d90b" message="Notofication Received"/>
+		<error-handler >
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="67d6a97c-531f-4716-bbf9-a1e586fe6981" type="MULE:REDELIVERY_EXHAUSTED">
+				<vm:publish queueName="cancel-show-notifications-dlq" doc:name="Cancel Show VM DLQ" doc:id="75e1a1c2-c3aa-49a8-9e6d-4b409e2dca05" config-ref="VM_ConfigShowCancellation" sendCorrelationId="ALWAYS"/>
+			</on-error-continue>
+		</error-handler>
+	</flow>
+	<flow name="process-cancel-show-notification-dlq" doc:id="7c616c55-d8ec-4126-9da1-ed5f68ec5d57" >
+		<vm:listener doc:name="Cancel Show DLQ" doc:id="b9c75e6f-94cf-4d93-b3aa-e6e5957ff8b2" config-ref="VM_ConfigShowCancellation" queueName="cancel-show-notifications-dlq"/>
+		<logger level="INFO" doc:name="Logger" doc:id="73c55536-5d68-4a43-ac91-0e3e54c3e41d" message="Received message in dlq"/>
+	</flow>
+</mule>
